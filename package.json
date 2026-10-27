@@ -1,5 +1,5 @@
 {
-  "name": "week8",
+  "name": "week10",
   "version": "1.0.0",
   "description": "Same as before (2 Docker containers), but with an important addition. We will also use the \"pg\"-package,\r and connect Express to postgreSQL.",
   "main": "index.js",
@@ -21,6 +21,7 @@
   "dependencies": {
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "sequelize": "^6.37.8"
   }
 }
