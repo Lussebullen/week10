@@ -220,6 +220,16 @@ app.post("/authors", async (req, res) => {
   }
 });
 
+try {
+  await sequelize.authenticate();
+  console.log("Connected to PostgreSQL");
+} catch (err) {
+  console.error("Database connection failed:", err);
+  process.exit(1);
+}
+
+app.listen(port, () => console.log(`Server is running on port ${port}...`));
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
