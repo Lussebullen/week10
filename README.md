@@ -7,3 +7,16 @@ See ANSWERS.md
 - Test was successfully performed
 ![Task-6](/images/db-comm-ok.png)  
 
+# Task 3
+- CRUD routes for books and authors have been rewritten for sequalize. Examples:  
+**Get all books**
+Route: GET
+URL:http://localhost:3000/books
+![Task-6](/images/books-get-all.png)  
+
+**Get all authors**
+Route: GET
+URL:http://localhost:3000/authors
+![Task-6](/images/authors-get-all.png)  
+
+more screnshots to come...
