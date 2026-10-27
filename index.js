@@ -1,10 +1,25 @@
+import "dotenv/config";
 import express from "express";
-import { pool } from "./db.js";
+import { sequelize } from "./sequalize.js";
+import { ForeignKeyConstraintError, ValidationError } from "sequelize";
+import { Book, Author } from "./models/index.js";
 
 const app = express();
 app.use(express.json());
 
 const port = process.env.APP_PORT;
+
+// Shared error handling for routes that write books
+function handleWriteError(err, res) {
+  if (err instanceof ForeignKeyConstraintError) {
+    return res.status(400).send("Author does not exist");
+  }
+  if (err instanceof ValidationError) {
+    return res.status(400).json({ errors: err.errors.map((e) => e.message) });
+  }
+  console.error(err);
+  res.status(500).send("Internal server error");
+}
 
 app.get("/", (req, res) => {
     res.send("Welcome to the Books API!");
@@ -14,186 +29,194 @@ app.get("/", (req, res) => {
 const allowedSorts = ["id", "title", "genre", "published_year"];
 
 app.get("/books", async (req, res) => {
-  //Filter out the books by genre if the query parameter is provided
-  const genre = req.query.genre;
-  let query = "SELECT * FROM books";
-  const params = [];
+  const { genre } = req.query;
   const sort = req.query.sort || "id";
-
-  if (genre) {
-    query += " WHERE genre = $1";
-    params.push(genre);
-  }
 
   if (!allowedSorts.includes(sort)) {
     return res.status(400).send("Invalid sort parameter");
   }
 
+  // Filter out the books by genre if the query parameter is provided
+  const where = {};
+  if (genre) where.genre = genre;
+
   try {
-    const result = await pool.query(query + ` ORDER BY ${sort}`, params);
-    //If the list of books is empty, return a 404 status code with a message
-    if (result.rows.length === 0) {
+    const books = await Book.findAll({
+      where,
+      order: [[sort, "ASC"]],
+    });
+
+    // If the list of books is empty, return a 404 status code with a message
+    if (books.length === 0) {
       return res.status(404).send("No books were found that match your criteria");
     }
-    res.json(result.rows);
+    res.json(books);
   } catch (err) {
-    res.status(500).send(err.message);
+    console.error(err);
+    res.status(500).send("Internal server error");
   }
 });
 
 // Endpoint to get a specific book by ID
 app.get("/books/:id", async (req, res) => {
-    const { id } = req.params; // Get the book ID from the URL parameters
-    if (isNaN(id)) {
-        return res.status(400).send("Invalid book ID");
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid book ID");
+  }
+  try {
+    const book = await Book.findByPk(id);
+    if (!book) {
+      return res.status(404).send("Book not found");
     }
-    try {
-        const result = await pool.query("SELECT * FROM books WHERE id = $1", [id]);
-        if (result.rows.length === 0) {
-            return res.status(404).send("Book not found");
-        }
-        res.json(result.rows[0]);
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
+    res.json(book);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal server error");
+  }
 });
 
 app.post("/books", async (req, res) => {
-    const { title, genre, published_year, author_id } = req.body;
-    // Validate the input data
-    if (!title || !genre || !published_year || !author_id) {
-        return res.status(400).send("Missing required fields: title, genre, published_year, author_id");
-    }
-    try {
-        const result = await pool.query(
-            "INSERT INTO books (title, genre, published_year, author_id) VALUES ($1, $2, $3, $4) RETURNING *",
-            [title, genre, published_year, author_id]
-        );
-        res.status(201).json(result.rows[0]);
-    } catch (err) {
-        if (err.code === "23503") {
-            return res.status(400).send("Author does not exist");
-        }
-        res.status(500).send(err.message);
-    }
+  const { title, genre, published_year, author_id } = req.body;
+  if (!title || !genre || !published_year || !author_id) {
+    return res.status(400).send("Missing required fields: title, genre, published_year, author_id");
+  }
+  try {
+    const book = await Book.create({ title, genre, published_year, author_id });
+    res.status(201).json(book);
+  } catch (err) {
+    handleWriteError(err, res);
+  }
 });
 
+// PUT replaces the whole book, so all fields are required
 app.put("/books/:id", async (req, res) => {
-    const { id } = req.params; // Get the book ID from the URL parameters
-    const { title, genre, published_year, author_id } = req.body; // Get the new book data from the request body
-    try {
-        const result = await pool.query(
-            "UPDATE books SET title = $1, genre = $2, published_year = $3, author_id = $4 WHERE id = $5 RETURNING *",
-            [title, genre, published_year, author_id, id] // Replace the placeholders with the actual values
-        );
-        if (result.rows.length === 0) {
-            return res.status(404).send("Book not found");
-        }
-        res.json(result.rows[0]); // Return the updated book data
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
-});
-
-app.patch("/books/:id", async (req, res) => {
   const { id } = req.params;
   const { title, genre, published_year, author_id } = req.body;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid book ID");
+  }
+  if (!title || !genre || !published_year || !author_id) {
+    return res.status(400).send("Missing required fields: title, genre, published_year, author_id");
+  }
+  try {
+    const book = await Book.findByPk(id);
+    if (!book) {
+      return res.status(404).send("Book not found");
+    }
+    await book.update({ title, genre, published_year, author_id });
+    res.json(book);
+  } catch (err) {
+    handleWriteError(err, res);
+  }
+});
 
-  // Avoid updating if no fields are provided
-  if (title === undefined && genre === undefined && published_year === undefined && author_id === undefined) {
+// PATCH updates only the fields that were sent
+app.patch("/books/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid book ID");
+  }
+
+  const updates = {};
+  for (const field of ["title", "genre", "published_year", "author_id"]) {
+    if (req.body[field] !== undefined) updates[field] = req.body[field];
+  }
+  if (Object.keys(updates).length === 0) {
     return res.status(400).send("No fields provided for update");
   }
 
   try {
-    const result = await pool.query(
-      `UPDATE books
-       SET title = COALESCE($1, title),
-           genre = COALESCE($2, genre),
-           published_year = COALESCE($3, published_year),
-           author_id = COALESCE($4, author_id)
-       WHERE id = $5
-       RETURNING *`,
-      [title ?? null, genre ?? null, published_year ?? null, author_id ?? null, id] //"title ?? null" turns a missing field (undefined) into null, so the placeholder always gets a value.
-    );
-
-    if (result.rows.length === 0) {
+    const book = await Book.findByPk(id);
+    if (!book) {
       return res.status(404).send("Book not found");
     }
-    res.json(result.rows[0]);
+    await book.update(updates);
+    res.json(book);
   } catch (err) {
-    res.status(500).send(err.message);
+    handleWriteError(err, res);
   }
 });
 
 app.delete("/books/:id", async (req, res) => {
-    const { id } = req.params; // Get the book ID from the URL parameters
-    try {
-        const result = await pool.query(
-            "DELETE FROM books WHERE id = $1 RETURNING *",
-            [id]
-        );  
-        if (result.rows.length === 0) {
-            return res.status(404).send("Book not found");
-        }
-        res.json(result.rows[0]);
-    } catch (err) {
-        res.status(500).send(err.message);
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid book ID");
+  }
+  try {
+    const book = await Book.findByPk(id);
+    if (!book) {
+      return res.status(404).send("Book not found");
     }
+    await book.destroy();
+    res.json(book);
+  } catch (err) {
+    if (err instanceof ForeignKeyConstraintError) {
+      return res.status(409).send("Book has loan records and cannot be deleted");
+    }
+    console.error(err);
+    res.status(500).send("Internal server error");
+  }
 });
 
 app.get("/authors", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM authors");
-    res.json(result.rows);
+    const authors = await Author.findAll();
+    res.json(authors);
   } catch (err) {
-    res.status(500).send(err.message);
+    console.error(err);
+    res.status(500).send("Internal server error");
   }
 });
 
 app.get("/authors/:id/books", async (req, res) => {
   const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid author ID");
+  }
 
   try {
-    // Case 1: does the author exist at all?
-    const author = await pool.query(
-      "SELECT id, name FROM authors WHERE id = $1",
-      [id]
-    );
-    if (author.rows.length === 0) {
+    // One query: the author and all their books
+    const author = await Author.findByPk(id, { include: Book });
+
+    // Case 1: the author doesn't exist
+    if (!author) {
       return res.status(404).send("Author not found");
     }
 
-    const result = await pool.query(
-      `SELECT books.id, books.title, books.genre, books.published_year,
-              authors.name AS author_name
-       FROM books
-       JOIN authors ON books.author_id = authors.id
-       WHERE authors.id = $1`,
-      [id]
-    );
-
-    // Case 2: author exists, but has no books
-    if (result.rows.length === 0) {
+    // Case 2: the author exists, but has no books
+    if (author.Books.length === 0) {
       return res.json({
-        message: `Author ${author.rows[0].name} has no books yet as far as we know.`,
+        message: `Author ${author.name} has no books yet as far as we know.`,
         books: [],
       });
     }
 
-    res.json(result.rows);
+    res.json(
+      author.Books.map((b) => ({
+        id: b.id,
+        title: b.title,
+        genre: b.genre,
+        published_year: b.published_year,
+        author_name: author.name,
+      }))
+    );
   } catch (err) {
-    res.status(500).send(err.message);
+    console.error(err);
+    res.status(500).send("Internal server error");
   }
 });
 
 app.post("/authors", async (req, res) => {
   const { name } = req.body;
-
   try {
-    const result = await pool.query("INSERT INTO authors (name) VALUES ($1) RETURNING *", [name]);
-    res.status(201).json(result.rows[0]);
+    const author = await Author.create({ name });
+    res.status(201).json(author);
   } catch (err) {
-    res.status(500).send(err.message);
+    if (err instanceof ValidationError) {
+      return res.status(400).json({ errors: err.errors.map((e) => e.message) });
+    }
+    console.error(err);
+    res.status(500).send("Internal server error");
   }
 });
 
