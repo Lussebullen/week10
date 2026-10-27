@@ -1,4 +1,4 @@
-## 1. Understanding the ORM 
+# Understanding the ORM 
 1. An ORM translates databse tables into javascript objects where each object attribute is a column of the table
 
 2. An ORM is an "object-relational mapper" that translates databse tables into javascript objects  
