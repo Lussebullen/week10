@@ -1,13 +1,20 @@
 import "dotenv/config";
 import express from "express";
 import { sequelize } from "./sequalize.js";
-import { ForeignKeyConstraintError, ValidationError } from "sequelize";
-import { Book, Author } from "./models/index.js";
+import {
+  Op,
+  ForeignKeyConstraintError,
+  UniqueConstraintError,
+  ValidationError,
+} from "sequelize";
+import { Book, Author, Member, Loan } from "./models/index.js";
 
 const app = express();
 app.use(express.json());
 
 const port = process.env.APP_PORT;
+
+const isValidId = (id) => /^\d+$/.test(String(id));
 
 // Shared error handling for routes that write books
 function handleWriteError(err, res) {
@@ -22,7 +29,7 @@ function handleWriteError(err, res) {
 }
 
 app.get("/", (req, res) => {
-    res.send("Welcome to the Books API!");
+    res.send("Welcome to the Library API!");
 });
 
 
@@ -220,6 +227,131 @@ app.post("/authors", async (req, res) => {
   }
 });
 
+// UniqueConstraintError extends ValidationError, so it must be checked first
+function handleMemberWriteError(err, res) {
+  if (err instanceof UniqueConstraintError) {
+    return res.status(409).send("A member with that email already exists");
+  }
+  if (err instanceof ValidationError) {
+    return res.status(400).json({ errors: err.errors.map((e) => e.message) });
+  }
+  serverError(err, res);
+}
+
+app.post("/members", async (req, res) => {
+  const { name, address, phone, email } = req.body;
+  try {
+    const member = await Member.create({ name, address, phone, email });
+    res.status(201).json(member);
+  } catch (err) {
+    handleMemberWriteError(err, res);
+  }
+});
+
+const allowedMemberSorts = ["id", "name", "email"];
+
+app.get("/members", async (req, res) => {
+  const { name } = req.query;
+  const sort = req.query.sort || "id";
+  if (!allowedMemberSorts.includes(sort)) {
+    return res.status(400).send("Invalid sort parameter");
+  }
+
+  const where = {};
+  if (name) where.name = { [Op.iLike]: `%${name}%` };
+
+  try {
+    const members = await Member.findAll({ where, order: [[sort, "ASC"]] });
+    res.json(members);
+  } catch (err) {
+    serverError(err, res);
+  }
+});
+
+app.get("/members/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid member ID");
+  }
+  try {
+    const member = await Member.findByPk(id);
+    if (!member) {
+      return res.status(404).send("Member not found");
+    }
+    res.json(member);
+  } catch (err) {
+    serverError(err, res);
+  }
+});
+
+// PUT replaces the whole member: name and email required, the rest becomes null if missing
+app.put("/members/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, address, phone, email } = req.body;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid member ID");
+  }
+  if (!name || !email) {
+    return res.status(400).send("Missing required fields: name, email");
+  }
+  try {
+    const member = await Member.findByPk(id);
+    if (!member) {
+      return res.status(404).send("Member not found");
+    }
+    await member.update({ name, address: address ?? null, phone: phone ?? null, email });
+    res.json(member);
+  } catch (err) {
+    handleMemberWriteError(err, res);
+  }
+});
+
+app.patch("/members/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid member ID");
+  }
+
+  const updates = {};
+  for (const field of ["name", "address", "phone", "email"]) {
+    if (req.body[field] !== undefined) updates[field] = req.body[field];
+  }
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).send("No fields provided for update");
+  }
+
+  try {
+    const member = await Member.findByPk(id);
+    if (!member) {
+      return res.status(404).send("Member not found");
+    }
+    await member.update(updates);
+    res.json(member);
+  } catch (err) {
+    handleMemberWriteError(err, res);
+  }
+});
+
+app.delete("/members/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).send("Invalid member ID");
+  }
+  try {
+    const member = await Member.findByPk(id);
+    if (!member) {
+      return res.status(404).send("Member not found");
+    }
+    await member.destroy();
+    res.json(member);
+  } catch (err) {
+    if (err instanceof ForeignKeyConstraintError) {
+      return res.status(409).send("Member has loan records and cannot be deleted");
+    }
+    serverError(err, res);
+  }
+});
+
 try {
   await sequelize.authenticate();
   console.log("Connected to PostgreSQL");
@@ -228,6 +360,10 @@ try {
   process.exit(1);
 }
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+app.listen(port, (err) => {
+  if (err) {
+    console.error("Could not start server:", err);
+    process.exit(1);
+  }
+  console.log(`Server is running on port ${port}...`);
 });
