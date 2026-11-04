@@ -3,10 +3,11 @@ import { z } from "zod";
 const menu = {
   margherita: 100,
   pepperoni: 120,
+  vegetarian: 110,
 };
 
 // Schemas
-export const PizzaTypeSchema = z.enum(["margherita", "pepperoni"]);
+export const PizzaTypeSchema = z.enum(["margherita", "pepperoni", "vegetarian"]);
 
 export const PizzaSchema = z.object({
   type: PizzaTypeSchema,
