@@ -9,4 +9,5 @@ It belongs in the test file for unit tests (**pizzashop.test.ts**), because it o
 ## 3. The BUG
 ![#Q3](images/zod-positive.png)
   
-The cause of the bug is zod's interpretation of **nonnegative()**. It means “zero or greater”, so 0 passes validation, never throws as expected and hence the AssertionError (why the 0 amount assertion fails to throw). The test treats 0 as an invalid order ID, so we need “greater than zero” instead, which is zod's **positive()** method, (see AmountSchema also)
+The cause of the bug is zod's interpretation of **nonnegative()**. It means “zero or greater”, so 0 passes validation, never throws as expected and hence the AssertionError (why the 0 amount assertion fails to throw). The test treats 0 as an invalid order ID, so we need “greater than zero” instead, which is zod's **positive()** method, (see AmountSchema also).  
+So, yes, an honest mistake that would not have got cought so easily without the test case.
