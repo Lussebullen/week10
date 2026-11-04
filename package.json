@@ -12,15 +12,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Lussebullen/week10-TDD.git"
+    "url": "git+https://github.com/lussebullen/week10-TDD.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Lussebullen/week10-TDD/issues"
+    "url": "https://github.com/lussebullen/week10-TDD/issues"
   },
-  "homepage": "https://github.com/Lussebullen/week10-TDD#readme",
+  "homepage": "https://github.com/lussebullen/week10-TDD#readme",
   "dependencies": {
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
