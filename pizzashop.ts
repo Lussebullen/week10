@@ -14,7 +14,7 @@ export const PizzaSchema = z.object({
   price: z.number().positive(),
 });
 
-export const OrderIdSchema = z.number().int().nonnegative();
+export const OrderIdSchema = z.number().int().positive();
 
 export const AmountSchema = z.number().positive();
 
@@ -38,6 +38,7 @@ const chargeCustomer = (orderId: unknown, amount: unknown): boolean => {
   if (orderId === undefined || orderId === null) {
     throw new Error("Cannot charge the cutomer without a valid order ID!");
   }
+
   const validOrderId = OrderIdSchema.parse(orderId);
   const validAmount = AmountSchema.parse(amount);
   console.log(`Charging ${validAmount}SEK for order #${validOrderId}`);

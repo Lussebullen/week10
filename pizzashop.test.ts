@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { createPizza, orderPizza, sendOrder } from "./pizzashop";
+import { chargeCustomer, createPizza, orderPizza, sendOrder } from "./pizzashop";
 
 describe("Pizza Shop Unit Tests", () => {
   test("createPizza returns correct type and price", () => {
@@ -12,6 +12,16 @@ describe("Pizza Shop Unit Tests", () => {
 
   test("createPizza throws for unknown type", () => {
     expect(() => createPizza("hawaii")).toThrow();
+  });
+
+  test("chargeCustomer throws for invalid order IDs", () => {
+    expect(() => chargeCustomer(-1, 100)).toThrow();
+    expect(() => chargeCustomer("abc", 100)).toThrow();
+    expect(() => chargeCustomer(null, 100)).toThrow();
+    expect(() => chargeCustomer(undefined, 100)).toThrow();
+    expect(() => chargeCustomer(12.5, 100)).toThrow();
+    expect(() => chargeCustomer(10, 0)).toThrow(); // Invalid amount
+    expect(() => chargeCustomer(0, 5)).toThrow(); // Should throw for invalid order ID but fails to do so
   });
 
   test("sendOrder returns a numeric order id", () => {
