@@ -1,28 +1,35 @@
 {
-  "name": "week10",
+  "name": "week10-TDD",
   "version": "1.0.0",
   "description": "Same as before (2 Docker containers), but with an important addition. We will also use the \"pg\"-package,\r and connect Express to postgreSQL.",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "dev": "node --watch index.js"
-    },
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Lussebullen/week8.git"
+    "url": "git+https://github.com/Lussebullen/week10-TDD.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Lussebullen/week8/issues"
+    "url": "https://github.com/Lussebullen/week10-TDD/issues"
   },
-  "homepage": "https://github.com/Lussebullen/week8#readme",
+  "homepage": "https://github.com/Lussebullen/week10-TDD#readme",
   "dependencies": {
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "pg": "^8.23.1",
-    "sequelize": "^6.37.8"
+    "sequelize": "^6.37.8",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^5.1.0",
+    "vitest": "^5.1.0"
   }
 }
