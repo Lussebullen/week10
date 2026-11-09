@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { OrderIdSchema } from "./schemas";
+import { AmountSchema, OrderIdSchema } from "./schemas";
 
 //safeParse doesn’t throw. 
 // It returns an object with success set to true or false, so it’s convenient for tests
@@ -24,4 +24,17 @@ describe("OrderIdSchema", () => {
     expect(OrderIdSchema.safeParse(null).success).toBe(false);
     expect(OrderIdSchema.safeParse(undefined).success).toBe(false);
   });
+});
+
+describe("AmountSchema", () => {
+  test("accepts positive numbers", () => {
+    expect(AmountSchema.safeParse(1).success).toBe(true);
+    expect(AmountSchema.safeParse(42).success).toBe(true);
+  });
+
+  test("rejects zero and negative numbers", () => {
+    expect(AmountSchema.safeParse(0).success).toBe(false);
+    expect(AmountSchema.safeParse(-1).success).toBe(false);
+  });
+
 });
