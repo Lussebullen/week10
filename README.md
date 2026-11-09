@@ -1,3 +1,4 @@
 # TDD (Test Driven Development)
 - Task 1 done.  
 - Task 2 done.
+- Task 3 in progress: I renamed our previous test files so that vitest can focus on the zod schemas alone. I put the schemas in a separate file as well, **schemas.ts**
