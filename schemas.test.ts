@@ -36,5 +36,14 @@ describe("AmountSchema", () => {
     expect(AmountSchema.safeParse(0).success).toBe(false);
     expect(AmountSchema.safeParse(-1).success).toBe(false);
   });
+test("rejects non-integers", () => {
+    expect(AmountSchema.safeParse(12.5).success).toBe(false);
+  });
 
+  test("rejects non-numbers", () => {
+    expect(AmountSchema.safeParse("abc").success).toBe(false);
+    expect(AmountSchema.safeParse("5").success).toBe(false);
+    expect(AmountSchema.safeParse(null).success).toBe(false);
+    expect(AmountSchema.safeParse(undefined).success).toBe(false);
+  });
 });
