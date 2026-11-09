@@ -1,3 +1,3 @@
 import { z } from "zod";
 
-export const OrderIdSchema = z.number().positive();
+export const OrderIdSchema = z.number().positive().int();
